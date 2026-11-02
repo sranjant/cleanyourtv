@@ -1,0 +1,75 @@
+name: Build CleanYourTV APK
+
+on:
+workflow_dispatch:
+
+permissions:
+contents: write
+
+jobs:
+build:
+runs-on: ubuntu-latest
+
+steps:
+  - name: Checkout repository
+    uses: actions/checkout@v4
+    with:
+      fetch-depth: 0
+
+  - name: Set up Java 17
+    uses: actions/setup-java@v4
+    with:
+      distribution: temurin
+      java-version: "17"
+
+  - name: Set up Android SDK
+    uses: android-actions/setup-android@v3
+    with:
+      packages: ''
+
+  - name: Install required Android SDK packages
+    run: |
+      sdkmanager --install "platforms;android-34" "build-tools;34.0.0"
+
+  - name: Set up Gradle
+    uses: gradle/actions/setup-gradle@v4
+
+  - name: Build CleanYourTV
+    working-directory: launcher
+    run: |
+      chmod +x gradlew
+      ./gradlew --no-daemon testReleaseUnitTest lintRelease assembleRelease
+
+  - name: Verify APK
+    run: |
+      APK="launcher/app/build/outputs/apk/release/app-release.apk"
+
+      test -f "$APK"
+
+      ls -lh "$APK"
+
+      SIZE=$(stat -c %s "$APK")
+
+      if [ "$SIZE" -ge 589824 ]; then
+        echo "APK size exceeds expected limit"
+        exit 1
+      fi
+
+  - name: Publish APK to repository
+    run: |
+      mkdir -p downloadable
+
+      cp launcher/app/build/outputs/apk/release/app-release.apk \
+        downloadable/cleanyourtv-acer-r3.apk
+
+      git config user.name "github-actions[bot]"
+      git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      git add downloadable/cleanyourtv-acer-r3.apk
+
+      if git diff --cached --quiet; then
+        echo "APK is already up to date."
+      else
+        git commit -m "Publish CleanYourTV APK"
+        git push origin HEAD:${GITHUB_REF_NAME}
+      fi
