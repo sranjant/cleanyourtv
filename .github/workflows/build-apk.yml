@@ -73,4 +73,3 @@ steps:
         git commit -m "Publish CleanYourTV APK"
         git push origin HEAD:${GITHUB_REF_NAME}
       fi
-```
